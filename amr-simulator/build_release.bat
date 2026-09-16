@@ -1,0 +1,1 @@
+cmake --build build_release --config Release --target ALL_BUILD -j 12

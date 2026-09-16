@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/node.svg</file>
+        <file>icons/box.svg</file>
+        <file>icons/station.svg</file>
+        <file>icons/amr.svg</file>
+
+        <file>images/node.svg</file>
+        <file>images/box.svg</file>
+        <file>images/station.svg</file>
+        <file>images/amr.svg</file>
+    </qresource>
+</RCC>
