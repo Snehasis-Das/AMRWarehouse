@@ -27,7 +27,7 @@ public:
     int totalAmrCount() const;
 
 signals:
-    void objectSelected(const QString& type, int x, int y, const QString& metadata);
+    void objectSelected(const QString& type, int id, int x, int y, const QString& metadata);
     void debugMessage(const QString& message);
 
 protected:
@@ -39,6 +39,7 @@ protected:
 private:
     struct Object {
         QString type;
+        int id = 0;
         int x = 0;
         int y = 0;
         int taskTiming = 0;
@@ -51,6 +52,9 @@ private:
     void eraseObject(int x, int y);
     void configureObject(Object& object);
 
+    int nextIdForType(const QString& type);
+    void updateNextIds();
+
     QString imagePathForType(const QString& type) const;
 
 private:
@@ -58,4 +62,9 @@ private:
     int m_height = 10;
     QList<Object> m_objects;
     QString m_selectedType;
+
+    int m_nextBoxId = 1;
+    int m_nextStationId = 1;
+    int m_nextAmrId = 1;
+    int m_nextNodeId = 1;
 };

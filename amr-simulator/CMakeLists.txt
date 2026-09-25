@@ -9,20 +9,27 @@ project(AMRSimulator LANGUAGES CXX)
 set(SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
 file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp")
 
+find_package(Threads REQUIRED)
+
 include_directories(
-    C:/glew-2.1.0/glew-2.1.0/include
-    C:/glfw-3.4/glfw-3.4.bin.WIN64/include
-    C:/GLM/g-truc-glm-0af55cc
+    C:/SFML-3.0.2-windows-vc17-64-bit/SFML-3.0.2/include
     ${PROJECT_SOURCE_DIR}/include
 )
 
 link_directories(
-    C:/glew-2.1.0/glew-2.1.0/lib/Release/x64
-    C:/glfw-3.4/glfw-3.4.bin.WIN64/lib-vc2022
+    C:/SFML-3.0.2-windows-vc17-64-bit/SFML-3.0.2/lib
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-add_definitions(-DGLEW_STATIC)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    debug sfml-graphics-d
+    debug sfml-window-d
+    debug sfml-system-d
 
-target_link_libraries(${PROJECT_NAME} glfw3 glew32s opengl32 gdi32)
+    optimized sfml-graphics
+    optimized sfml-window
+    optimized sfml-system
+    Threads::Threads
+    ws2_32
+)

@@ -8,6 +8,7 @@
 class Grid;
 class Palette;
 class InfoBox;
+class TaskWork;
 class QPlainTextEdit;
 class QResizeEvent;
 
@@ -40,6 +41,7 @@ private:
     QToolBar* m_toolbar = nullptr;
 
     Palette* m_palette = nullptr;
+    TaskWork* m_taskWork = nullptr;
     Grid* m_grid = nullptr;
     QPlainTextEdit* m_debug = nullptr;
     InfoBox* m_infobox = nullptr;

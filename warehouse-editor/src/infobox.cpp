@@ -15,6 +15,7 @@ InfoBox::InfoBox(QWidget* parent)
     m_image->setAlignment(Qt::AlignCenter);
 
     m_type = new QLabel("Object: None", this);
+    m_id = new QLabel("ID: -", this);
     m_position = new QLabel("Position: -", this);
     m_metadata = new QLabel("Select or place an object on the grid.", this);
     m_metadata->setWordWrap(true);
@@ -25,6 +26,7 @@ InfoBox::InfoBox(QWidget* parent)
 
     layout->addWidget(m_image, 0, Qt::AlignHCenter);
     layout->addWidget(m_type);
+    layout->addWidget(m_id);
     layout->addWidget(m_position);
     layout->addWidget(m_metadata);
     layout->addStretch();
@@ -35,9 +37,15 @@ InfoBox::InfoBox(QWidget* parent)
     );
 }
 
-void InfoBox::showObject(const QString& type, int x, int y, const QString& objectMetadata)
+void InfoBox::showObject(const QString& type, int id, int x, int y, const QString& objectMetadata)
 {
     m_type->setText("Object: " + type);
+
+    if (type == "Empty")
+        m_id->setText("ID: -");
+    else
+        m_id->setText(QString("ID: %1").arg(id));
+    
     m_position->setText(QString("Position: (%1, %2)").arg(x).arg(y));
 
     QString imagePath;

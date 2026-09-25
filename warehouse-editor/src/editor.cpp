@@ -1,5 +1,5 @@
 #include "editor.h"
-
+#include "taskwork.h"
 #include "grid.h"
 #include "infobox.h"
 #include "palette.h"
@@ -17,6 +17,10 @@
 #include <QGridLayout>
 #include <QResizeEvent>
 #include <QVBoxLayout>
+#include <QProcess>
+#include <QCoreApplication>
+#include <QFileInfo>
+
 
 Editor::Editor(QWidget* parent)
     : QMainWindow(parent)
@@ -52,7 +56,6 @@ void Editor::createToolbar()
 
 void Editor::createWorkspace()
 {
-    m_palette = new Palette(this);
     m_grid = new Grid(this);
 
     m_debug = new QPlainTextEdit(this);
@@ -68,12 +71,34 @@ void Editor::createWorkspace()
     m_infobox = new InfoBox(this);
 
     auto* central = new QWidget(this);
+
+    auto* leftPanel = new QWidget(central);
+
+    auto* leftLayout = new QVBoxLayout(leftPanel);
+
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(12);
+
+    m_palette = new Palette(leftPanel);
+    m_taskWork = new TaskWork(leftPanel);
+
+    leftLayout->addWidget(
+        m_palette,
+        0,
+        Qt::AlignTop
+    );
+
+    leftLayout->addWidget(
+        m_taskWork,
+        1
+    );
+
     auto* layout = new QGridLayout(central);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setHorizontalSpacing(0);
     layout->setVerticalSpacing(0);
 
-    layout->addWidget(m_palette, 0, 0, 2, 1);
+    layout->addWidget(leftPanel, 0, 0, 2, 1);
     layout->addWidget(m_grid, 0, 1);
     layout->addWidget(m_debug, 1, 1);
     layout->addWidget(m_infobox, 0, 2, 2, 1);
@@ -89,11 +114,12 @@ void Editor::createWorkspace()
     connect(m_palette, &Palette::objectSelected, m_grid, &Grid::setSelectedType);
     connect(m_grid, &Grid::objectSelected, m_infobox, &InfoBox::showObject);
     connect(m_grid, &Grid::debugMessage, this, &Editor::log);
+    connect(m_taskWork, &TaskWork::debugMessage, this, &Editor::log);
 }
 
 void Editor::updateLayout()
 {
-    if (!centralWidget() || !m_grid || !m_palette || !m_infobox || !m_debug)
+    if (!centralWidget() || !m_grid || !m_palette || !m_taskWork || !m_infobox || !m_debug)
         return;
 
     constexpr int minPaletteWidth = 170;
@@ -151,6 +177,9 @@ void Editor::updateLayout()
     gridHeight = qMin(gridHeight, maxHeight);
 
     m_palette->setFixedWidth(paletteWidth);
+    const int paletteHeight = qMax(1, m_palette->heightForWidth(paletteWidth));
+    m_palette->setFixedHeight(paletteHeight);
+    m_taskWork->setFixedWidth(paletteWidth);
     m_infobox->setFixedWidth(infoWidth);
     m_grid->setFixedSize(gridWidth, gridHeight);
     m_debug->setFixedSize(gridWidth, debugHeight);
@@ -198,6 +227,8 @@ void Editor::newWarehouse()
         m_warehouseHeight
     );
 
+    m_taskWork->clearTasks();
+
     updateLayout();
     log(QString("Created new warehouse: %1 x %2")
             .arg(width)
@@ -225,6 +256,7 @@ bool Editor::saveWarehouseTo(const QString& filepath)
     root["width"] = m_warehouseWidth;
     root["height"] = m_warehouseHeight;
     root["objects"] = m_grid->toJson();
+    root["tasks"] = m_taskWork->toJson();
 
     QJsonObject fleet;
     fleet["amrs_outside_stations"] = m_grid->amrsOutsideStations();
@@ -306,6 +338,11 @@ void Editor::loadWarehouse()
     m_grid->setWarehouseSize(width, height);
     m_grid->fromJson(root["objects"].toArray());
 
+    if (root.contains("tasks") && root["tasks"].isArray())
+        m_taskWork->fromJson(root["tasks"].toArray());
+    else
+        m_taskWork->clearTasks();
+
     m_currentFile = filepath;
 
     updateLayout();
@@ -314,13 +351,53 @@ void Editor::loadWarehouse()
 
 void Editor::simulate()
 {
-    if (!m_currentFile.isEmpty())
+    auto launchSimulator = [this]()
     {
+        if (m_currentFile.isEmpty())
+        {
+            return;
+        }
+
+        const QString simulatorPath =
+            QCoreApplication::applicationDirPath()
+            + "/AMRSimulator.exe";
+
         log("Simulation requested: " + m_currentFile);
 
-        /*
-         * The OpenGL simulator will be launched here later.
-         */
+        if (!QFileInfo::exists(simulatorPath))
+        {
+            log("ERROR: AMRSimulator.exe not found: " + simulatorPath);
+
+            QMessageBox::critical(
+                this,
+                "Simulator Not Found",
+                "AMRSimulator.exe could not be found next to the editor."
+            );
+
+            return;
+        }
+
+        if (!QProcess::startDetached(
+                simulatorPath,
+                { m_currentFile }))
+        {
+            log("ERROR: Failed to launch AMRSimulator.exe.");
+
+            QMessageBox::critical(
+                this,
+                "Simulation Error",
+                "Failed to launch the AMR simulator."
+            );
+
+            return;
+        }
+
+        log("Simulator launched successfully.");
+    };
+
+    if (!m_currentFile.isEmpty())
+    {
+        launchSimulator();
         return;
     }
 
@@ -336,10 +413,16 @@ void Editor::simulate()
     );
 
     QPushButton* saveButton =
-        dialog.addButton("Save Current Warehouse", QMessageBox::AcceptRole);
+        dialog.addButton(
+            "Save Current Warehouse",
+            QMessageBox::AcceptRole
+        );
 
     QPushButton* chooseButton =
-        dialog.addButton("Choose Warehouse JSON", QMessageBox::ActionRole);
+        dialog.addButton(
+            "Choose Warehouse JSON",
+            QMessageBox::ActionRole
+        );
 
     dialog.exec();
 
@@ -349,7 +432,7 @@ void Editor::simulate()
 
         if (!m_currentFile.isEmpty())
         {
-            log("Simulation requested: " + m_currentFile);
+            launchSimulator();
         }
 
         return;
@@ -361,7 +444,7 @@ void Editor::simulate()
 
         if (!m_currentFile.isEmpty())
         {
-            log("Simulation requested: " + m_currentFile);
+            launchSimulator();
         }
     }
 }

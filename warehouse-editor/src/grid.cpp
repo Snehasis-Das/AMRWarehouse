@@ -28,6 +28,10 @@ void Grid::setWarehouseSize(int width, int height)
     m_width = qMax(1, width);
     m_height = qMax(1, height);
     m_objects.clear();
+    m_nextBoxId = 1;
+    m_nextStationId = 1;
+    m_nextAmrId = 1;
+    m_nextNodeId = 1;
     update();
 }
 
@@ -37,6 +41,7 @@ QJsonArray Grid::toJson() const
 
     for (const Object& object : m_objects) {
         QJsonObject value;
+        value["id"] = object.id;
         value["type"] = object.type;
         value["x"] = object.x;
         value["y"] = object.y;
@@ -56,6 +61,11 @@ void Grid::fromJson(const QJsonArray& objects)
 {
     m_objects.clear();
 
+    m_nextBoxId = 1;
+    m_nextStationId = 1;
+    m_nextAmrId = 1;
+    m_nextNodeId = 1;
+
     for (const QJsonValue& value : objects) {
         if (!value.isObject())
             continue;
@@ -73,6 +83,14 @@ void Grid::fromJson(const QJsonArray& objects)
         loaded.x = x;
         loaded.y = y;
 
+        if (object.contains("id"))
+            loaded.id = object["id"].toInt(0);
+        else
+            loaded.id = nextIdForType(type);
+
+        if (loaded.id <= 0)
+            loaded.id = nextIdForType(type);
+
         if (type == "Box")
             loaded.taskTiming = qMax(0, object["task_timing"].toInt(0));
         else if (type == "Station")
@@ -81,7 +99,54 @@ void Grid::fromJson(const QJsonArray& objects)
         m_objects.append(loaded);
     }
 
+    updateNextIds();
+
     update();
+}
+
+int Grid::nextIdForType(const QString& type)
+{
+    if (type == "Box")
+        return m_nextBoxId++;
+
+    if (type == "Station")
+        return m_nextStationId++;
+
+    if (type == "AMR")
+        return m_nextAmrId++;
+
+    if (type == "Node")
+        return m_nextNodeId++;
+
+    return 1;
+}
+
+void Grid::updateNextIds()
+{
+    m_nextBoxId = 1;
+    m_nextStationId = 1;
+    m_nextAmrId = 1;
+    m_nextNodeId = 1;
+
+    for (const Object& object : m_objects) {
+
+        if (object.type == "Box") {
+            m_nextBoxId =
+                qMax(m_nextBoxId, object.id + 1);
+        }
+        else if (object.type == "Station") {
+            m_nextStationId =
+                qMax(m_nextStationId, object.id + 1);
+        }
+        else if (object.type == "AMR") {
+            m_nextAmrId =
+                qMax(m_nextAmrId, object.id + 1);
+        }
+        else if (object.type == "Node") {
+            m_nextNodeId =
+                qMax(m_nextNodeId, object.id + 1);
+        }
+    }
 }
 
 QString Grid::objectAt(int x, int y) const
@@ -112,6 +177,7 @@ void Grid::addObject(const QString& type, int x, int y)
     for (Object& object : m_objects) {
         if (object.x == x && object.y == y) {
             object.type = type;
+            object.id = nextIdForType(type);
             object.taskTiming = 0;
             object.amrCount = 0;
             update();
@@ -121,6 +187,7 @@ void Grid::addObject(const QString& type, int x, int y)
 
     Object object;
     object.type = type;
+    object.id = nextIdForType(type);
     object.x = x;
     object.y = y;
 
@@ -304,7 +371,7 @@ void Grid::dropEvent(QDropEvent* event)
 
     if (type == "Erase") {
         eraseObject(x, y);
-        emit objectSelected("Empty", x, y, "Cell is empty.");
+        emit objectSelected("Empty", 0, x, y, "Cell is empty.");
         event->acceptProposedAction();
         return;
     }
@@ -327,7 +394,7 @@ void Grid::dropEvent(QDropEvent* event)
             metadata = "Network coordination node.";
     }
 
-    emit objectSelected(type, x, y, metadata);
+    emit objectSelected(type, object ? object->id : 0, x, y, metadata);
     emit debugMessage(QString("Placed %1 at (%2, %3)").arg(type).arg(x).arg(y));
 
     event->acceptProposedAction();
@@ -354,14 +421,14 @@ void Grid::mousePressEvent(QMouseEvent* event)
 
     if (m_selectedType == "Erase") {
         eraseObject(x, y);
-        emit objectSelected("Empty", x, y, "Cell is empty.");
+        emit objectSelected("Empty", 0, x, y, "Cell is empty.");
         return;
     }
 
     Object* object = objectAtMutable(x, y);
 
     if (!object) {
-        emit objectSelected("Empty", x, y, "Cell is empty.");
+        emit objectSelected("Empty", 0, x, y, "Cell is empty.");
         return;
     }
 
@@ -377,7 +444,7 @@ void Grid::mousePressEvent(QMouseEvent* event)
     else if (object->type == "Node")
         metadata = "Network coordination node.";
 
-    emit objectSelected(object->type, object->x, object->y, metadata);
+    emit objectSelected(object->type, object->id, object->x, object->y, metadata);
     update();
 }
 
